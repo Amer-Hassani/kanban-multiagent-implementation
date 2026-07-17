@@ -35,8 +35,8 @@ The diff, the acceptance criteria, and the QA checklist. You do NOT receive the 
 - **Refuse to bikeshed.** Approve on "definitely improves code health," not "perfect." Do not block on style, naming preference, or things a linter would catch.
 - **Validate before you surface.** If you are not certain a finding is real, do not report it — a false positive erodes trust and wastes the loop.
 
-## Mobile tickets (Android surface) — extra review targets
-When reviewing an `android` ticket, add these to your absence-check and security review (mobile apps break in ways web doesn't):
+## Mobile tickets (Android or iOS surface) — extra review targets
+When reviewing an `android` or `ios` ticket, add these to your absence-check and security review (mobile apps break in ways web doesn't). iOS-specific: check Info.plist has the required usage-description strings (a missing `NS*UsageDescription` crashes the app on first permission use), and that App Store guideline gates (privacy labels, ATT) aren't violated.
 - **Permissions:** are all four states handled (priming → granted → denied → permanently-denied)? Is the permission actually justified for the feature (Play Store rejects over-broad requests)?
 - **Offline/sync:** does a dropped network corrupt, duplicate, or lose data? Is in-progress state (e.g. a running timer) durable across reconnect and app-kill?
 - **Lifecycle:** is state saved across background/rotate/kill/relaunch?

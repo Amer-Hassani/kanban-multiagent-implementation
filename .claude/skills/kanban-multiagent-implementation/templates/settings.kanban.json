@@ -80,7 +80,13 @@
       "Bash(adb logcat:*)",
       "Bash(adb shell:*)",
       "Bash(emulator -avd:*)",
-      "Bash(emulator -list-avds:*)"
+      "Bash(emulator -list-avds:*)",
+      "Bash(npx expo run:ios:*)",
+      "Bash(flutter build ios:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(xcrun simctl:*)",
+      "Bash(pod install:*)",
+      "Bash(open -a Simulator:*)"
     ]
   }
 }

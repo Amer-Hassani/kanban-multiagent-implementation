@@ -1,13 +1,14 @@
-# Kanban Multi-Agent Implementation (v2.3)
+# Kanban Multi-Agent Implementation (v2.4)
 
-> **Purpose:** Drive Claude Code from a Notion Kanban board using **eight role-scoped agents**, each a world-class professional at its one job — the best tools for it (kit), the elite methodology written into it (craft), and its restrictions actually enforced by real config (not just requested). Surface-adaptive: one board drives **web and Android** (iOS-ready via cloud). A single orchestrator owns the board; agents advance tickets to **Ready for review**; only the human moves a ticket to **Done**.
+> **Purpose:** Drive Claude Code from a Notion Kanban board using **ten role-scoped agents**, each a world-class professional at its one job — the best tools for it (kit), the elite methodology written into it (craft), and its restrictions actually enforced by real config (not just requested). Surface-adaptive: one board drives **web, Android, and iOS** (iOS builds locally on macOS; from Windows/Linux, iOS routes to a Mac or cloud build). A single orchestrator owns the board; agents advance tickets to **Ready for review**; only the human moves a ticket to **Done**.
 
 ## How it's built (and how enforcement really works)
-The skill ships **eight agent-definition files** (`templates/agents/*.md`) with real tool scoping + the elite craft, **PreToolUse hooks** (`templates/hooks/`) for per-agent path/command limits, and a **session-wide permissions template** (`templates/settings.kanban.json`) for secrets + irreversible ops. The tool restrictions are real (verified against the Claude Code docs and proven by execution), the agents think like experts, and the pipeline routes each ticket to the right build/test agents by its surface.
+The skill ships **ten agent-definition files** (`templates/agents/*.md`) with real tool scoping + the elite craft, **PreToolUse hooks** (`templates/hooks/`) for per-agent path/command limits, and a **session-wide permissions template** (`templates/settings.kanban.json`) for secrets + irreversible ops. The tool restrictions are real (verified against the Claude Code docs and proven by execution), the agents think like experts, and the pipeline routes each ticket to the right build/test agents by its surface.
 
 <details><summary>Version history (progress log)</summary>
 
-- **v2.3** — surface-adaptive: added web/Android split for Builder + Tester, the Product Owner agent, and mobile craft (Maestro MCP, permissions/offline/push). One board, both surfaces.
+- **v2.4** — added the **iOS surface** as a first-class citizen (iOS Builder + Tester, Maestro on the iOS Simulator). iOS availability is now **detected by host OS at setup** (full local on macOS; routed to a Mac/cloud on Windows/Linux) rather than assumed — so the skill works correctly for any operator, not just a Windows one.
+- **v2.3** — surface-adaptive: added web/Android split for Builder + Tester, the Product Owner agent, and mobile craft (Maestro MCP, permissions/offline/push).
 - **v2.2** — processed all 36+12 audit findings; fixed wiring against the real docs.
 - **v2.1** — switched tool scoping from `tools:` allowlists to `disallowedTools:` denylists (an allowlist silently strips MCP + skills) and moved per-agent limits into PreToolUse hooks.
 - **v2** — first wired version: agent files with tool scoping, elite craft, and enforcement instead of advisory prose.
@@ -28,30 +29,38 @@ Sibling to `kanban-agent-implementation` (one instance does everything). Use thi
 The orchestrator runs this as an interactive checklist, explaining each step in plain language and asking yes/no. **Nothing here requires the operator to write code.**
 
 1. **Ask where to run** — repo URL / local path / new project.
-2. **Verify prerequisites** — the orchestrator checks each and walks the operator through anything missing:
+2. **Detect the host OS + declare which surfaces build locally.** The orchestrator checks `process.platform` (or `uname` / `$OS`) once and tells the operator plainly what this machine can do:
+   - **macOS** → web ✓, Android ✓, **iOS ✓** — all three build and test locally.
+   - **Windows / Linux** → web ✓, Android ✓ locally; **iOS code is written here but its build/test needs macOS** (Apple's rule) — iOS-specific tickets route to a Mac host or a cloud build (Expo EAS). This is honest, not a limitation of the skill.
+   Record this so `ios` tickets are routed correctly for THIS host. Never assume the operator's OS — detect it.
+3. **Verify prerequisites** — the orchestrator checks each and walks the operator through anything missing (gate mobile/iOS tools on the surfaces this project actually has and this host supports):
    - **Notion MCP** connected to the board (required — the one true blocker).
-   - **Playwright MCP** — `claude mcp add playwright npx @playwright/mcp@latest` (for the Tester).
-   - **Superpowers** — `/plugin install superpowers@claude-plugins-official` (Builder, risky tickets). *Optional — without it the Builder plans in prose (Plan Mode isn't callable inside a subagent).*
+   - **Playwright MCP** — `claude mcp add playwright npx @playwright/mcp@latest` (web Tester).
+   - **Maestro** — for the mobile Testers (drives Android emulator + iOS Simulator). Install per maestro.dev; `maestro mcp` exposes it to the agent.
+   - **Superpowers** — `/plugin install superpowers@claude-plugins-official` (Builders, risky tickets). *Optional — without it Builders plan in prose.*
    - **Chrome DevTools MCP** — `/plugin install chrome-devtools-mcp@claude-plugins-official` (browser bugs). *Optional.*
+   - **Xcode** — required on macOS for the iOS surface (`xcodebuild`, iOS Simulator). Not applicable off macOS.
    - Built-in and already present: `/code-review`, `/security-review`, `/verify`, Plan Mode.
    - Gate DB/API tools (Postgres, Sentry, Postman MCP) on whether the project actually has that surface.
-3. **Confirm the orchestrator runs as the main session** — the orchestrator must be launched with `claude --agent kanban-orchestrator` (it is never spawned). It proves it by reading the board's status names via Notion MCP; if that fails, it stops and tells the operator to relaunch. This is the one hard launch requirement.
-4. **Install the agent files + hooks** — copy `templates/agents/*.md` → `.claude/agents/` (six agents) and `templates/hooks/*.js` → `.claude/hooks/`. The orchestrator does the copy. It then **auto-detects** the test-path from the repo (scans for `tests/`, `__tests__/`, `*.spec.*`) and fills the constant in `_path-guard.js` — showing the operator what it found ("your tests live in `tests/` — correct? yes/no"), never asking them to type a glob.
-5. **Merge the permissions safely** — the orchestrator reads any existing `.claude/settings.json`, writes a timestamped `.bak` backup, then **array-unions** `permissions.deny` and `permissions.allow` (dedup) leaving all other keys untouched — never a whole-block paste. It **auto-fills** the test/build/lint/serve commands by reading `package.json` scripts, and shows each as "your test command is `npm test` (found in package.json) — does running it show your tests? yes/no." Then shows a before/after diff of the rule lists and confirms no existing deny was removed.
-6. **Confirm the risky-code list** — the orchestrator SCANS the repo and PROPOSES which files/areas are shared/critical (auth, payments, schema, shared components), each with a one-line plain reason, and asks yes/no. Default if unsure: treat everything as Risky (slower, safer). The operator owns this list; the Planner may propose additions, never removals.
-7. **Confirm the board** — read the live board's exact Status/Phase/Priority names via MCP; never assume them.
+4. **Confirm the orchestrator runs as the main session** — the orchestrator must be launched with `claude --agent kanban-orchestrator` (it is never spawned). It proves it by reading the board's status names via Notion MCP; if that fails, it stops and tells the operator to relaunch. This is the one hard launch requirement.
+5. **Install the agent files + hooks** — copy `templates/agents/*.md` → `.claude/agents/` (ten agents) and `templates/hooks/*.js` → `.claude/hooks/`. The orchestrator does the copy. It then **auto-detects** the test-path from the repo (scans for `tests/`, `__tests__/`, `*.spec.*`) and fills the constant in `_path-guard.js` — showing the operator what it found ("your tests live in `tests/` — correct? yes/no"), never asking them to type a glob.
+6. **Merge the permissions safely** — the orchestrator reads any existing `.claude/settings.json`, writes a timestamped `.bak` backup, then **array-unions** `permissions.deny` and `permissions.allow` (dedup) leaving all other keys untouched — never a whole-block paste. It **auto-fills** the test/build/lint/serve commands by reading `package.json` scripts, and shows each as "your test command is `npm test` (found in package.json) — does running it show your tests? yes/no." Then shows a before/after diff of the rule lists and confirms no existing deny was removed.
+7. **Confirm the risky-code list** — the orchestrator SCANS the repo and PROPOSES which files/areas are shared/critical (auth, payments, schema, shared components), each with a one-line plain reason, and asks yes/no. Default if unsure: treat everything as Risky (slower, safer). The operator owns this list; the Planner may propose additions, never removals.
+8. **Confirm the board** — read the live board's exact Status/Phase/Priority names via MCP; never assume them.
 
 ---
 
-## Surface-adaptive: one skill, web + Android (+ iOS-ready)
+## Surface-adaptive: one skill, web + Android + iOS
 
-Every ticket has a **surface** — `web`, `android`, `backend`, or `ios`. The *thinking* agents (PO, Planner, Reviewer) are one file each and handle all surfaces; the *hands-on-the-app* agents (Builder, Tester) come in a **web** and an **android** variant, and the orchestrator spawns the right one per ticket. This matches the "one backend, many faces" architecture — a single Notion board can drive a web app and an Android app that share a backend.
+Every ticket has a **surface** — `web`, `android`, `ios`, or `backend`. The *thinking* agents (PO, Planner, Reviewer) are one file each and handle all surfaces; the *hands-on-the-app* agents (Builder, Tester) come in **web**, **android**, and **ios** variants, and the orchestrator spawns the right one per ticket. This matches the "one backend, many faces" architecture — a single board can drive a web app and mobile apps that share a backend.
 
-- **`web` / `backend`** → `kanban-builder-web` + `kanban-tester-web` (npm/vite, Playwright). Fully local.
-- **`android`** → `kanban-builder-android` + `kanban-tester-android` (Flutter/Expo/Gradle, **Maestro MCP**). Fully local on Windows — no Mac needed.
-- **`ios`** → deferred. With Expo/React Native, iOS is the *same codebase* as Android, but iOS can't be built or driven on Windows (needs macOS). iOS-specific tickets are marked **Blocked — needs cloud build (EAS)**; shared code is covered by the matching `android` ticket. iOS becomes a cloud step (Expo EAS) when you choose to ship it — no Mac purchase required.
+- **`web` / `backend`** → `kanban-builder-web` + `kanban-tester-web` (npm/vite, Playwright). Runs on any OS.
+- **`android`** → `kanban-builder-android` + `kanban-tester-android` (Flutter/Expo/Gradle, **Maestro MCP**). Runs on any OS (Windows/Mac/Linux).
+- **`ios`** → `kanban-builder-ios` + `kanban-tester-ios` (Expo/Flutter, `xcodebuild`, **Maestro on the iOS Simulator**). **Requires a macOS host** — that's Apple's rule, not the skill's.
 
-## The eight agents
+**iOS is a full surface — availability depends on the host, detected at setup, not assumed.** On a **Mac**, all three (web/android/ios) build and test locally. On **Windows/Linux**, web + Android are fully local; iOS *code* is written from the same Expo/RN codebase, but its build/test needs macOS — so an iOS-specific ticket routes to a Mac host or a cloud build (Expo EAS), and the skill says so plainly rather than pretending. With Expo/React Native, most iOS work is shared with Android (one codebase), so on a non-Mac host a shared `ios` ticket is usually already covered by its matching `android` ticket.
+
+## The ten agents
 
 | Agent | Role | Best kit | Per-agent limit enforced by |
 |---|---|---|---|
@@ -60,11 +69,13 @@ Every ticket has a **surface** — `web`, `android`, `backend`, or `ios`. The *t
 | **Planner** | triage, order, **decompose** (web + mobile checklists), author acceptance tests | Spec-Kit skill (or plan-in-prose) | hook: test files only |
 | **Builder — web** | web/backend test-first, smallest change, commits at green | Superpowers · Chrome DevTools/Postgres/Sentry MCP | hook: can't touch acceptance tests |
 | **Builder — android** | Android (Flutter/Expo) test-first; permissions/offline musts | Superpowers · Flutter/Expo/Gradle/adb | hook: can't touch acceptance tests |
+| **Builder — ios** *(macOS host)* | iOS (Expo/Flutter) test-first; permissions/Info.plist/HIG musts | Superpowers · Expo/Flutter/xcodebuild/simctl | hook: can't touch acceptance tests |
 | **Reviewer** *(risky)* | independent correctness + security (web + mobile checklists) | `/code-review` · `/security-review` · Semgrep | denylist no write + hook: read-only Bash |
 | **Tester — web** *(risky + evidence)* | drive web app, attack edge cases, plain evidence | Playwright · `/verify` · Chrome DevTools | hook: test files only |
-| **Tester — android** *(risky + evidence)* | drive Android app on emulator; **mobile attacks** (permissions, offline, lifecycle) | **Maestro MCP** · `/verify` · adb | hook: test files only |
+| **Tester — android** *(risky + evidence)* | drive Android app on emulator; **mobile attacks** | **Maestro MCP** · `/verify` · adb | hook: test files only |
+| **Tester — ios** *(risky, macOS host)* | drive iOS app on the Simulator; **mobile attacks** | **Maestro MCP** · `/verify` · simctl | hook: test files only |
 
-Full definitions live in `templates/agents/*.md`. The **Product Owner** runs once at the start (or when a new idea needs a backlog) and is consulted later — not part of the per-ticket loop.
+Full definitions live in `templates/agents/*.md`. The **Product Owner** runs once at the start and is consulted later — not part of the per-ticket loop. The **ios** Builder/Tester are only spawned on a **macOS host** (see the surface section); on Windows/Linux the orchestrator routes iOS work to a Mac or cloud build.
 
 **How skills reach each agent:** they're baked into the agent's own `.claude/agents/*.md` file — the orchestrator does NOT grant tools at runtime. It spawns the right agent by name (which is born already holding its kit + craft), then passes only **this ticket's context** in the spawn prompt, and enforces independence by **omitting** what would break it (never passing the Builder's reasoning to the Reviewer/Tester).
 
