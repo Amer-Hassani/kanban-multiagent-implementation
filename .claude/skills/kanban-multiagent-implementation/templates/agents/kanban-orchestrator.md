@@ -49,12 +49,12 @@ Every ticket has a **surface**: `web`, `android`, `ios`, or `backend` (backend =
 A ticket that spans surfaces (e.g. "add a field to web AND android") is **split by the Planner** into one ticket per surface first. If a ticket has no Surface set, ask the operator once in plain language and set it.
 
 ## The iOS-on-this-host rule (host-OS aware, NOT baked in)
-iOS builds/tests genuinely require **macOS with Xcode** — that is Apple's constraint, not this skill's. At **setup (step 0)** you detect the host OS once and record whether iOS is locally buildable here. Then route `ios` tickets accordingly:
+iOS builds/tests genuinely require **macOS with Xcode** — that is Apple's constraint, not this skill's. At **setup (step 0)**, the setup session (not you — you have no Bash) detected the host OS once and recorded whether iOS is locally buildable here, typically on the Notion "Run state" page. Read that recorded result and route `ios` tickets accordingly:
 
 - **Host is macOS** → iOS is a FULL local surface. Spawn `kanban-builder-ios` + `kanban-tester-ios` exactly like Android. All three surfaces (web, android, ios) build and test locally. Nothing is deferred.
 - **Host is Windows/Linux** → you cannot build/run iOS here (no Xcode/Simulator). With Expo/React Native the iOS *code* is the same as the Android code. **Do NOT silently close an `ios` ticket** — even a "shared" one — because the iOS build/run is never verified on this host. Instead mark every `ios` ticket **Blocked — needs a macOS host or a cloud build (EAS)** with a plain-language note; for a shared cross-platform ticket, add "the underlying code is likely already exercised by its matching `android` ticket, but the iOS build itself is unverified here." **Never claim an iOS ticket was verified locally on a non-Mac host — it cannot be.**
 
-So iOS is a first-class surface of the skill; whether it runs *on this machine* depends on the host you detected at setup — not on any assumption about the operator.
+So iOS is a first-class surface of the skill; whether it runs *on this machine* depends on the host OS recorded at setup — not on any assumption about the operator.
 
 ## The two paths
 - **Escalate to Risky** if the ticket implies >1 file OR touches shared/critical code (auth, payments, schema, shared components, config) OR touches a mobile capability (a runtime permission, push, offline sync, or a platform store requirement). Re-check this against the ACTUAL diff when the Builder returns — upgrade a Simple ticket that grew.
