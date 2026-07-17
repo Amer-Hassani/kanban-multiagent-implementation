@@ -1,4 +1,4 @@
-# kanban-multiagent-implementation — v2.4
+# kanban-multiagent-implementation — v2.5
 
 A Claude Code skill that drives implementation from a Notion Kanban board using
 **ten role-scoped agents**, each a specialist at one job — with the best tools

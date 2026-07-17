@@ -1,4 +1,4 @@
-# Kanban Multi-Agent Implementation (v2.4)
+# Kanban Multi-Agent Implementation (v2.5)
 
 > **Purpose:** Drive Claude Code from a Notion Kanban board using **ten role-scoped agents**, each a world-class professional at its one job — the best tools for it (kit), the elite methodology written into it (craft), and its restrictions actually enforced by real config (not just requested). Surface-adaptive: one board drives **web, Android, and iOS** (iOS builds locally on macOS; from Windows/Linux, iOS routes to a Mac or cloud build). A single orchestrator owns the board; agents advance tickets to **Ready for review**; only the human moves a ticket to **Done**.
 
@@ -7,7 +7,8 @@ The skill ships **ten agent-definition files** (`templates/agents/*.md`) with re
 
 <details><summary>Version history (progress log)</summary>
 
-- **v2.4** — added the **iOS surface** as a first-class citizen (iOS Builder + Tester, Maestro on the iOS Simulator). iOS availability is now **detected by host OS at setup** (full local on macOS; routed to a Mac/cloud on Windows/Linux) rather than assumed — so the skill works correctly for any operator, not just a Windows one.
+- **v2.5** — full-audit fix pass (30 findings). Fixed the load-bearing bugs: setup file-ops moved off the write-free orchestrator to the setup session; the path-guard now allows Maestro `.maestro/` flows (mobile tickets no longer stall); the "read-only" Reviewer hook now actually blocks shell-redirect writes (was bypassable); bare `kanban-builder`/`kanban-tester` names replaced with the surface-routed ones that exist; settings hardened (pod/eas/yarn/pnpm installs + signing files denied, `gradlew.bat` for Windows, tighter secret globs); iOS permission-state naming corrected, no more silent-closing iOS tickets, app-install-before-Maestro spelled out.
+- **v2.4** — added the **iOS surface** as a first-class citizen (iOS Builder + Tester, Maestro on the iOS Simulator). iOS availability is **detected by host OS at setup** (full local on macOS; routed to a Mac/cloud on Windows/Linux) rather than assumed.
 - **v2.3** — surface-adaptive: added web/Android split for Builder + Tester, the Product Owner agent, and mobile craft (Maestro MCP, permissions/offline/push).
 - **v2.2** — processed all 36+12 audit findings; fixed wiring against the real docs.
 - **v2.1** — switched tool scoping from `tools:` allowlists to `disallowedTools:` denylists (an allowlist silently strips MCP + skills) and moved per-agent limits into PreToolUse hooks.
@@ -19,6 +20,7 @@ The skill ships **ten agent-definition files** (`templates/agents/*.md`) with re
 - **`settings.json` is session-wide** (applies to every agent equally). It correctly holds secret-read denies, config-edit denies, and irreversible-op denies (push/deploy/dependency-install).
 - **Per-agent scoping** (Planner/Tester write test files only; Builder can't touch acceptance tests; Reviewer read-only Bash) is impossible in session-wide settings, so it lives in **PreToolUse hooks** referenced by each agent file.
 - File rules use **`Edit(...)`** not `Write(...)` (a `Write(path)` rule is accepted but never matched as of v2.1.210).
+- **Honest limit:** PreToolUse hooks and permission rules are *best-effort*, not a hard security boundary — a determined agent with Bash could attempt shell tricks. The hooks here block the obvious bypasses (output redirection, mutating commands), but for a *guaranteed* boundary (e.g. an agent that truly cannot touch a path or the network), enable Claude Code's OS **`sandbox`** in settings. This skill is designed for trusted, operator-supervised use with a human gate before anything ships — not as a defense against a hostile agent.
 
 Sibling to `kanban-agent-implementation` (one instance does everything). Use this when you want genuinely independent build/review/test.
 
@@ -26,14 +28,14 @@ Sibling to `kanban-agent-implementation` (one instance does everything). Use thi
 
 ## Setup (step 0 — do this ONCE per project, before any ticket)
 
-The orchestrator runs this as an interactive checklist, explaining each step in plain language and asking yes/no. **Nothing here requires the operator to write code.**
+**Who runs setup:** the file-installing steps (copy agent files/hooks, merge settings, detect the host OS) are done by a **normal Claude Code session or the operator** — NOT the orchestrator. The orchestrator agent is deliberately write-free (no Write/Edit/Bash), so it *cannot* copy files or merge settings; it only takes over *after* setup, to run tickets. Setup is an interactive checklist explained in plain language, yes/no answers. **Nothing here requires the operator to write code themselves.**
 
 1. **Ask where to run** — repo URL / local path / new project.
-2. **Detect the host OS + declare which surfaces build locally.** The orchestrator checks `process.platform` (or `uname` / `$OS`) once and tells the operator plainly what this machine can do:
-   - **macOS** → web ✓, Android ✓, **iOS ✓** — all three build and test locally.
-   - **Windows / Linux** → web ✓, Android ✓ locally; **iOS code is written here but its build/test needs macOS** (Apple's rule) — iOS-specific tickets route to a Mac host or a cloud build (Expo EAS). This is honest, not a limitation of the skill.
-   Record this so `ios` tickets are routed correctly for THIS host. Never assume the operator's OS — detect it.
-3. **Verify prerequisites** — the orchestrator checks each and walks the operator through anything missing (gate mobile/iOS tools on the surfaces this project actually has and this host supports):
+2. **Detect the host OS + declare which surfaces build locally.** The setup session runs one command — `node -e "console.log(process.platform)"` (darwin = macOS, win32 = Windows, linux = Linux) — and tells the operator plainly what this machine can do:
+   - **macOS (`darwin`)** → web ✓, Android ✓, **iOS ✓** — all three build and test locally.
+   - **Windows (`win32`) / Linux** → web ✓, Android ✓ locally; **iOS code is written here but its build/test needs macOS** (Apple's rule) — iOS-specific tickets route to a Mac host or a cloud build (Expo EAS). This is honest, not a limitation of the skill.
+   Record the result (e.g. in the Notion "Run state" page) so the orchestrator routes `ios` tickets correctly for THIS host. Never assume the operator's OS — detect it.
+3. **Verify prerequisites** — the setup session checks each and walks the operator through anything missing (gate mobile/iOS tools on the surfaces this project actually has and this host supports):
    - **Notion MCP** connected to the board (required — the one true blocker).
    - **Playwright MCP** — `claude mcp add playwright npx @playwright/mcp@latest` (web Tester).
    - **Maestro** — for the mobile Testers (drives Android emulator + iOS Simulator). Install per maestro.dev; `maestro mcp` exposes it to the agent.
@@ -42,11 +44,11 @@ The orchestrator runs this as an interactive checklist, explaining each step in 
    - **Xcode** — required on macOS for the iOS surface (`xcodebuild`, iOS Simulator). Not applicable off macOS.
    - Built-in and already present: `/code-review`, `/security-review`, `/verify`, Plan Mode.
    - Gate DB/API tools (Postgres, Sentry, Postman MCP) on whether the project actually has that surface.
-4. **Confirm the orchestrator runs as the main session** — the orchestrator must be launched with `claude --agent kanban-orchestrator` (it is never spawned). It proves it by reading the board's status names via Notion MCP; if that fails, it stops and tells the operator to relaunch. This is the one hard launch requirement.
-5. **Install the agent files + hooks** — copy `templates/agents/*.md` → `.claude/agents/` (ten agents) and `templates/hooks/*.js` → `.claude/hooks/`. The orchestrator does the copy. It then **auto-detects** the test-path from the repo (scans for `tests/`, `__tests__/`, `*.spec.*`) and fills the constant in `_path-guard.js` — showing the operator what it found ("your tests live in `tests/` — correct? yes/no"), never asking them to type a glob.
-6. **Merge the permissions safely** — the orchestrator reads any existing `.claude/settings.json`, writes a timestamped `.bak` backup, then **array-unions** `permissions.deny` and `permissions.allow` (dedup) leaving all other keys untouched — never a whole-block paste. It **auto-fills** the test/build/lint/serve commands by reading `package.json` scripts, and shows each as "your test command is `npm test` (found in package.json) — does running it show your tests? yes/no." Then shows a before/after diff of the rule lists and confirms no existing deny was removed.
-7. **Confirm the risky-code list** — the orchestrator SCANS the repo and PROPOSES which files/areas are shared/critical (auth, payments, schema, shared components), each with a one-line plain reason, and asks yes/no. Default if unsure: treat everything as Risky (slower, safer). The operator owns this list; the Planner may propose additions, never removals.
-8. **Confirm the board** — read the live board's exact Status/Phase/Priority names via MCP; never assume them.
+4. **Install the agent files + hooks** — the setup session copies `templates/agents/*.md` → `.claude/agents/` (ten agents) and `templates/hooks/*.js` → `.claude/hooks/`. It then **auto-detects** the test path from the repo (scans for `tests/`, `__tests__/`, `androidTest/`, `.maestro/`, `*.spec.*`) and fills the `ACCEPTANCE_TEST_GLOB` / test-path constants in `_path-guard.js` — showing the operator what it found ("your tests live in `tests/` — correct? yes/no"), never asking them to type a glob. (This must happen BEFORE the orchestrator launches — the orchestrator can't write files.)
+5. **Merge the permissions safely** — the setup session reads any existing `.claude/settings.json`, writes a timestamped `.bak` backup, then **array-unions** `permissions.deny` and `permissions.allow` (dedup) leaving all other keys untouched — never a whole-block paste. It **auto-fills** the test/build/lint/serve commands by reading `package.json` scripts (and the Gradle wrapper form for the host OS — `gradlew.bat` on Windows, `./gradlew` elsewhere), showing each as "your test command is `npm test` (found in package.json) — does running it show your tests? yes/no." Then shows a before/after diff and confirms no existing deny was removed.
+6. **Confirm the risky-code list** — the setup session (or the orchestrator, which has Read/Grep) SCANS the repo and PROPOSES which files/areas are shared/critical (auth, payments, schema, shared components), each with a one-line plain reason, and asks yes/no. Default if unsure: treat everything as Risky. The operator owns this list; the Planner may propose additions, never removals.
+7. **Confirm the board** — read the live board's exact Status/Phase/Priority names via MCP; never assume them.
+8. **NOW launch the orchestrator** — with `claude --agent kanban-orchestrator` (it is never spawned as a subagent). It proves it's the main session by reading the board's status names via Notion MCP; if that fails, it stops and tells the operator to relaunch. From here the orchestrator runs tickets; it never writes files.
 
 ---
 
@@ -116,7 +118,7 @@ To Do → In progress → Planner writes acceptance tests → Builder → Review
 ---
 
 ## Verification (the orchestrator never trusts a claim)
-The orchestrator has no Bash — it cannot re-run tests itself. So it does NOT accept a Builder's "tests pass" as evidence. **The independent re-run is always a fresh Tester spawn** — the orchestrator spawns `kanban-tester` with (diff, acceptance criteria, checklist) and consumes its PASS/FAIL. (`/verify` is a tool the Tester uses, not a separate actor.) Self-reported success is never sufficient — on **both** paths.
+The orchestrator has no Bash — it cannot re-run tests itself. So it does NOT accept a Builder's "tests pass" as evidence. **The independent re-run is always a fresh Tester spawn** — the orchestrator spawns the surface-matched tester (`kanban-tester-web` / `-android` / `-ios`) with (diff, acceptance criteria, checklist) and consumes its PASS/FAIL. (`/verify` is a tool the Tester uses, not a separate actor.) Self-reported success is never sufficient — on **both** paths.
 
 ---
 
@@ -165,7 +167,7 @@ When the human moves a ticket to Done, the orchestrator merges its branch to the
 - Cap-exit → Blocked, never dangling.
 - No orphaned/duplicate code, no unrelated refactors, no dependency bumps without human approval.
 - Never guess a missing requirement — Blocked with a precise question.
-- Don't add agents beyond these five without a demonstrated recurring failure.
+- Don't add agents beyond these ten without a demonstrated recurring failure.
 
 ---
 
@@ -178,7 +180,7 @@ Run Setup step 0 first: ask me where to run the project; verify prerequisites an
 
 Then run startup reconciliation (heal any orphaned In-progress ticket) before new work.
 
-Work tickets one at a time as the Orchestrator: you are the ONLY one who writes to Notion. Decide Simple vs Risky per the rule, re-checking against the actual diff. Spawn fresh role agents by name (kanban-planner / kanban-builder / kanban-reviewer / kanban-tester) — pass each only this ticket's context, and NEVER pass the Builder's reasoning to the Reviewer/Tester. Never accept "tests pass" as evidence — a fresh Tester must independently confirm. Log every transition write-ahead (INTENT then DONE) with a machine-time stamp.
+Work tickets one at a time as the Orchestrator: you are the ONLY one who writes to Notion. First read each ticket's SURFACE (web/android/ios/backend) and pick the matching builder/tester variant. Decide Simple vs Risky per the rule, re-checking against the actual diff. Spawn fresh role agents by name — `kanban-planner`, `kanban-reviewer`, and the surface-routed `kanban-builder-{web,android,ios}` / `kanban-tester-{web,android,ios}` (there is no bare kanban-builder/kanban-tester). Pass each only this ticket's context, and NEVER pass the Builder's reasoning to the Reviewer/Tester. Never accept "tests pass" as evidence — a fresh Tester must independently confirm. Log every transition write-ahead (INTENT then DONE) with a machine-time stamp.
 
 Move tickets only as far as Ready for review, with plain-language evidence attached (what changed / how to try it / screenshot). I move tickets to Done myself. Ask before git push, deploys, or any new dependency.
 ```

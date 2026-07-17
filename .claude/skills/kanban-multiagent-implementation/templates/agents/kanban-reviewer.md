@@ -37,7 +37,7 @@ The diff, the acceptance criteria, and the QA checklist. You do NOT receive the 
 
 ## Mobile tickets (Android or iOS surface) — extra review targets
 When reviewing an `android` or `ios` ticket, add these to your absence-check and security review (mobile apps break in ways web doesn't). iOS-specific: check Info.plist has the required usage-description strings (a missing `NS*UsageDescription` crashes the app on first permission use), and that App Store guideline gates (privacy labels, ATT) aren't violated.
-- **Permissions:** are all four states handled (priming → granted → denied → permanently-denied)? Is the permission actually justified for the feature (Play Store rejects over-broad requests)?
+- **Permissions:** are all states handled — priming → granted → denied → and the platform's terminal state (Android: *permanently-denied*; iOS: *restricted/limited*)? On iOS, is the Info.plist usage-description string present (a missing `NS*UsageDescription` crashes the app)? Is the permission justified for the feature (both stores reject over-broad requests)?
 - **Offline/sync:** does a dropped network corrupt, duplicate, or lose data? Is in-progress state (e.g. a running timer) durable across reconnect and app-kill?
 - **Lifecycle:** is state saved across background/rotate/kill/relaunch?
 - **Mobile security:** secrets/tokens in insecure storage (SharedPreferences/plaintext), missing certificate handling, sensitive data in logs, insecure deep-link handling, WebView misconfig.

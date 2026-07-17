@@ -7,9 +7,10 @@ description: Independent WEB/backend QA for the kanban pipeline. Drives the real
 # so the hook rejects edits to product-code paths for this agent.
 disallowedTools: MultiEdit, NotebookEdit
 mcpServers:
-  playwright:
-    command: npx
-    args: ["-y", "@playwright/mcp@latest"]
+  - playwright:
+      type: stdio
+      command: npx
+      args: ["-y", "@playwright/mcp@latest"]
 hooks:
   PreToolUse:
     - matcher: "Edit|Write"

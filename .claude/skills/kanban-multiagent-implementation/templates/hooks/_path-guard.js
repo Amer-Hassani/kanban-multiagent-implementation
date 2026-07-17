@@ -9,9 +9,26 @@
  * EDIT the path constants to match THIS project's layout before use.
  */
 
-const ACCEPTANCE_TEST_GLOB = /(^|\/)tests\/acceptance\//;   // where the Planner writes acceptance tests
-const ANY_TEST_GLOB = /(\.|_|\/)(test|spec)s?[.\/]|(^|\/)tests?\//; // any test file/dir
-const PRODUCT_DENY_HINT = "This agent may write test files only, not product code.";
+// Where the Planner writes acceptance tests. The setup step should keep this in sync
+// with the project's real location; the default covers web (tests/acceptance/) AND
+// mobile Maestro flows (.maestro/acceptance/ or tests/acceptance/*.yaml).
+const ACCEPTANCE_TEST_GLOB = /(^|\/)tests\/acceptance\/|(^|\/)\.maestro\/acceptance\//;
+
+// Any test file/dir the Planner or Tester may write. Covers:
+//  · web/unit: *.test.*, *.spec.*, tests/, __tests__/
+//  · android native: androidTest/, *UITest(s)
+//  · mobile e2e flows (Maestro YAML): .maestro/, maestro/, flows/, e2e/, and *.yaml/*.yml under those
+const ANY_TEST_GLOB = new RegExp([
+  /(\.|_|\/)(test|spec)s?[.\/]/.source,          // foo.test.ts, foo_spec.rb, /tests/…
+  /(^|\/)tests?\//.source,                        // tests/ or test/
+  /(^|\/)__tests__\//.source,                     // __tests__/
+  /(^|\/)androidTest\//.source,                   // Android instrumented tests
+  /(^|\/)\.?maestro\//.source,                    // .maestro/ or maestro/ (Maestro flows)
+  /(^|\/)(flows|e2e)\/.*\.ya?ml$/.source,         // flows/…​.yaml, e2e/…​.yml
+  /UITests?[.\/]/.source,                          // iOS *UITests
+].join('|'), 'i');
+
+const PRODUCT_DENY_HINT = "This agent may write test files only (unit/spec, tests/, .maestro/ flows), not product code.";
 
 function readInput() {
   try { return JSON.parse(require('fs').readFileSync(0, 'utf8')); }

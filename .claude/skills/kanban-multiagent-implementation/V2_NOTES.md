@@ -1,3 +1,28 @@
+# kanban-multiagent-implementation — build notes
+
+## 🔧 v2.5 FIX PASS — full audit of v2.4 found 30 confirmed + 5 low. Fixing all by root cause.
+Audit verify-phase cut off by session limit, but audit phase (5 dims) complete + several findings CONFIRMED with executed proof (e.g. reviewer redirect bypass proven by running the hook).
+- RC1 [#1,#12,#22,#25 HIGH] Orchestrator is write-free (no Bash/Write/Edit) but SKILL setup steps 5-7 tell IT to copy files, merge settings, detect OS. Impossible + self-contradicts SKILL:138. → setup done by human/plain session BEFORE launching orchestrator; reword steps; OS-detect is a one-off operator/setup Bash step.
+- RC2 [#2,#11,#23,#27 HIGH] path-guard ANY_TEST_GLOB blocks Maestro .maestro/*.yaml flows the mobile Testers/Planner must write → every mobile ticket stalls. → add .maestro/, flows/, e2e/, *.yaml-under-flows to the allow regex.
+- RC3 [#5,#6,#7 HIGH] bare kanban-builder/kanban-tester spawn names DON'T EXIST (only -web/-android/-ios). Leftover from v2.3 split. → surface-routed names everywhere (orchestrator body, SKILL:119/181, guardrail).
+- RC4 [#14,#15,#28 HIGH·security] "read-only" Reviewer + all path hooks only guard Edit/Write, NOT Bash → bypassable via `echo x > file`. Proven by execution. → reviewer hook denies redirects (>,>>,tee,|) without \b; note that true path enforcement needs OS sandbox.
+- RC5 [#8 HIGH] Builder acceptance-test lock only fires on hardcoded tests/acceptance/ but Planner never told to write there → gap. → Planner writes acceptance tests under tests/acceptance/ (+ .maestro for mobile); state it; gate hook on it.
+- RC6 [#3,#16,#17,#19,#20,#21,#24 settings] pod install wrongly ALLOWED; missing denies: eas build/submit, expo submit, xcrun altool/notarytool, yarn/pnpm install, signing files (.mobileprovision/.keystore/.jks/.cer); ./gradlew won't run on Windows (need gradlew.bat); over-broad Read(**/*secret*) also blocks Edit on legit source; git config too broad for the attribution-trailer commit. → fix each.
+- RC7 [#9,#10,#13,#18,#26,#29,#30] iOS 4th permission state naming (Android=permanently-denied, iOS=restricted); drop "Windows machine" hard-code in android builder; app must be built+installed before Maestro drives it (pass --app-path); don't silent-CLOSE a shared ios ticket on Windows (mark Blocked-pending-macOS/EAS); Maestro/emulator env check in setup.
+- #4 [mcpServers] → REFUTED-ish: docs prose allows mapping form, but canonical EXAMPLE uses list form (- name: / type: stdio). Align to list form to be safe.
+- LOW: reviewer allowlist too strict; PO skills:[user-stories] not guaranteed present; Superpowers required-vs-optional inconsistent; reviewer hook stray top-level return.
+STATUS: ✅ v2.5 DONE. All 7 root causes + low findings fixed. Validated by execution:
+- reviewer hook: redirect attacks (echo>file, cat>>settings, |tee, rm) all DENIED; legit read-only ALLOWED. ✓
+- path-guard: .maestro/ flows ALLOWED (the bug that stalled every mobile ticket), product code DENIED. ✓
+- builder: can't edit acceptance tests, can edit product. ✓
+- settings JSON valid (59 deny / 49 allow); pod install moved allow→deny. ✓
+- 10/10 agent names match files; all testers list-form mcpServers; all hook refs resolve. ✓
+- #4 mcpServers: aligned to documented list form (- name:/type:stdio) to be safe.
+Honest note added to SKILL: hooks are best-effort not a sandbox; for a hard boundary enable OS sandbox; skill is for trusted operator-supervised use with a human gate.
+NEXT: push v2.5, then re-audit to confirm clean.
+
+---
+
 # kanban-multiagent-implementation — v2 build notes
 
 > Running blueprint for v2. Captures every audit finding so the v2 rewrite can fold them
