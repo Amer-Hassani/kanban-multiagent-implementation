@@ -1,13 +1,16 @@
-# kanban-multiagent-implementation — v2.3
+# kanban-multiagent-implementation — v2.4
 
 A Claude Code skill that drives implementation from a Notion Kanban board using
-**eight role-scoped agents**, each a specialist at one job — with the best tools
+**ten role-scoped agents**, each a specialist at one job — with the best tools
 for it (kit), a world-class professional's methodology written into it (craft),
 and its restrictions enforced by real config (not just requested).
 
-**Surface-adaptive:** one board drives **web and Android** from the same pipeline
-(iOS-ready via a cloud build). Every ticket carries a surface tag; the orchestrator
-spawns the matching build/test agents.
+**Surface-adaptive:** one board drives **web, Android, and iOS** from the same
+pipeline. Every ticket carries a surface tag; the orchestrator spawns the matching
+build/test agents. iOS builds/tests locally on **macOS**; from Windows/Linux the
+iOS *code* is written from the same Expo/React Native codebase and its build routes
+to a Mac or a cloud build (Expo EAS) — the skill detects the host OS at setup and
+tells the operator honestly what runs locally.
 
 > Note: this repo previously held the single-agent `kanban-agent-implementation`
 > skill. It has been replaced by this multi-agent successor.
@@ -21,9 +24,11 @@ spawns the matching build/test agents.
 | **Planner** | triage, order, decompose, author acceptance tests (web + mobile checklists) |
 | **Builder — web** | web/backend, test-first, smallest change, commits at green |
 | **Builder — android** | Android (Flutter/Expo), test-first, mobile musts (permissions, offline) |
+| **Builder — ios** *(macOS)* | iOS (Flutter/Expo), test-first, Info.plist/HIG musts |
 | **Reviewer** | independent correctness + security review (web + mobile) |
 | **Tester — web** | drives the web app (Playwright), attacks edge cases, plain-language evidence |
 | **Tester — android** | drives the Android app on an emulator (Maestro), mobile attacks |
+| **Tester — ios** *(macOS)* | drives the iOS app on the Simulator (Maestro), mobile attacks |
 
 The thinking agents (PO, Planner, Reviewer) are one file each and handle every
 surface; the hands-on agents (Builder, Tester) come in web and android variants.

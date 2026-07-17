@@ -36,18 +36,25 @@ Move each ready ticket **To Do → In progress → Ready for review**, one ticke
 - **Act on drift early.** If a specialist loops without progress, returns oversized output, or a ticket has been In progress too long — intervene, don't wait and hope.
 - **Keep yourself lean.** Take only distilled, bounded structured returns from specialists (a verdict + a summary + a file path), never their full transcripts. Compact proactively around 60% context; hand off to a fresh session with a written brief every N tickets, restoring state from the board + the run-state file.
 
-## Surface routing (web vs mobile) — decide BEFORE the path
-Every ticket has a **surface**: `web`, `android`, or `backend` (backend = pure API/server, no UI to drive). Read it from the ticket's Surface property (or infer from the acceptance criteria and confirm). The surface decides WHICH build/test agents you spawn — the thinking agents (Planner, Reviewer) are the same either way:
+## Surface routing — decide BEFORE the path
+Every ticket has a **surface**: `web`, `android`, `ios`, or `backend` (backend = pure API/server, no UI to drive). Read it from the ticket's Surface property (or infer from the criteria and confirm). The surface decides WHICH build/test agents you spawn — the thinking agents (Planner, Reviewer) are the same for all surfaces:
 
-| Surface | Builder you spawn | Tester you spawn |
-|---|---|---|
-| `web` | `kanban-builder-web` (npm/vite) | `kanban-tester-web` (Playwright MCP) |
-| `android` | `kanban-builder-android` (Flutter/Gradle/Expo) | `kanban-tester-android` (Maestro MCP) |
-| `backend` | `kanban-builder-web` (runs the API/tests, no browser) | `kanban-tester-web` (runs the suite via /verify, no UI) |
+| Surface | Builder you spawn | Tester you spawn | Host needed |
+|---|---|---|---|
+| `web` | `kanban-builder-web` (npm/vite) | `kanban-tester-web` (Playwright MCP) | any |
+| `android` | `kanban-builder-android` (Flutter/Gradle/Expo) | `kanban-tester-android` (Maestro MCP) | any (Win/Mac/Linux) |
+| `ios` | `kanban-builder-ios` (Expo/Flutter, xcodebuild) | `kanban-tester-ios` (Maestro on iOS Simulator) | **macOS only** |
+| `backend` | `kanban-builder-web` (runs the API/tests, no browser) | `kanban-tester-web` (runs the suite via /verify) | any |
 
-A ticket that spans surfaces (e.g. "add a field to web AND android") is **split by the Planner** into one ticket per surface first — never build two surfaces in one pass. If a ticket has no Surface set, ask the operator once in plain language ("is this for the website, the Android app, or the backend?") and set it.
+A ticket that spans surfaces (e.g. "add a field to web AND android") is **split by the Planner** into one ticket per surface first. If a ticket has no Surface set, ask the operator once in plain language and set it.
 
-**iOS surface (`ios`) — deferred, cloud-build only.** If the mobile app is built with Expo/React Native, iOS shares the same codebase as Android — but iOS **cannot be built or driven on this Windows machine** (iOS builds require macOS). So: do NOT spawn a local iOS builder/tester. For an `ios` ticket, if the change is shared cross-platform code, it is usually already covered by the corresponding `android` ticket (same code) — note that on the ticket. If it is genuinely iOS-specific, mark the ticket **Blocked — needs cloud build (EAS)** with a plain-language note, because it can only be built via Expo's cloud Mac (EAS Build) and tested on a macOS/cloud host, neither of which exists here. Never claim an iOS ticket was verified locally — it cannot be.
+## The iOS-on-this-host rule (host-OS aware, NOT baked in)
+iOS builds/tests genuinely require **macOS with Xcode** — that is Apple's constraint, not this skill's. At **setup (step 0)** you detect the host OS once and record whether iOS is locally buildable here. Then route `ios` tickets accordingly:
+
+- **Host is macOS** → iOS is a FULL local surface. Spawn `kanban-builder-ios` + `kanban-tester-ios` exactly like Android. All three surfaces (web, android, ios) build and test locally. Nothing is deferred.
+- **Host is Windows/Linux** → you cannot build/run iOS here (no Xcode/Simulator). With Expo/React Native the iOS *code* is the same as the Android code, so a shared cross-platform `ios` ticket is usually already covered by its matching `android` ticket — note that and close it. A genuinely iOS-specific `ios` ticket is marked **Blocked — needs a macOS host or a cloud build (EAS)**, with a plain-language note. **Never claim an iOS ticket was verified locally on a non-Mac host — it cannot be.**
+
+So iOS is a first-class surface of the skill; whether it runs *on this machine* depends on the host you detected at setup — not on any assumption about the operator.
 
 ## The two paths
 - **Escalate to Risky** if the ticket implies >1 file OR touches shared/critical code (auth, payments, schema, shared components, config) OR touches a mobile capability (a runtime permission, push, offline sync, or a platform store requirement). Re-check this against the ACTUAL diff when the Builder returns — upgrade a Simple ticket that grew.
