@@ -1,67 +1,62 @@
-# kanban-agent-implementation (Claude Code skill)
+# kanban-multiagent-implementation — v2.3
 
-A Claude Code skill that drives implementation directly from a Notion Kanban board.
-Claude triages the backlog, implements To Do tasks test-first one at a time, self-QAs
-with a timestamped checklist, and advances tickets through the board.
+A Claude Code skill that drives implementation from a Notion Kanban board using
+**eight role-scoped agents**, each a specialist at one job — with the best tools
+for it (kit), a world-class professional's methodology written into it (craft),
+and its restrictions enforced by real config (not just requested).
+
+**Surface-adaptive:** one board drives **web and Android** from the same pipeline
+(iOS-ready via a cloud build). Every ticket carries a surface tag; the orchestrator
+spawns the matching build/test agents.
+
+> Note: this repo previously held the single-agent `kanban-agent-implementation`
+> skill. It has been replaced by this multi-agent successor.
+
+## The eight agents
+
+| Agent | Role |
+|---|---|
+| **Product Owner** | idea → prioritized backlog of user stories; tags each story's surface; advises |
+| **Orchestrator** | owns the board, WIP limit, and log; routes tickets by surface; spawns the others; never codes |
+| **Planner** | triage, order, decompose, author acceptance tests (web + mobile checklists) |
+| **Builder — web** | web/backend, test-first, smallest change, commits at green |
+| **Builder — android** | Android (Flutter/Expo), test-first, mobile musts (permissions, offline) |
+| **Reviewer** | independent correctness + security review (web + mobile) |
+| **Tester — web** | drives the web app (Playwright), attacks edge cases, plain-language evidence |
+| **Tester — android** | drives the Android app on an emulator (Maestro), mobile attacks |
+
+The thinking agents (PO, Planner, Reviewer) are one file each and handle every
+surface; the hands-on agents (Builder, Tester) come in web and android variants.
+
+## What's in the skill
+
+```
+.claude/skills/kanban-multiagent-implementation/
+├── SKILL.md            the workflow, setup, surface routing, agent roster
+├── README.md           skill-level readme + install
+├── V2_NOTES.md         the full design + audit record behind every decision
+└── templates/          copied into your project at setup
+    ├── agents/*.md      the 8 agent definitions (tools + craft + enforcement)
+    ├── hooks/*.js       PreToolUse hooks for per-agent path/Bash limits
+    └── settings.kanban.json   session-wide permissions (secrets, irreversible ops)
+```
 
 ## Install
 
-### Option A — Personal skill (all your projects)
-Copy the folder to your personal skills directory:
-
 ```bash
-cp -R kanban-agent-implementation ~/.claude/skills/
+# Personal (all your projects):
+cp -R .claude/skills/kanban-multiagent-implementation ~/.claude/skills/
+
+# Or per-project: copy it into the repo you want to use it in, then
+# restart Claude Code (or run /skills) to confirm it's listed.
 ```
 
-Result: `~/.claude/skills/kanban-agent-implementation/SKILL.md`
+See `.claude/skills/kanban-multiagent-implementation/SKILL.md` for the full setup
+step, prerequisites, and the starter prompt.
 
-### Option B — Project skill (shared with a repo/team)
-Copy the folder into the repo you want to use it in:
+## Status
 
-```bash
-mkdir -p .claude/skills
-cp -R kanban-agent-implementation .claude/skills/
-```
-
-Result: `<repo>/.claude/skills/kanban-agent-implementation/SKILL.md`
-
-Then restart Claude Code (or run `/skills`) to confirm it is listed.
-
-## Prerequisite: Notion MCP connection
-
-This skill reads and writes your Notion board through the **Notion MCP server**.
-That connection is configured in **Claude Code's settings on each machine**, not in
-this skill file. Anyone using the skill must have the Notion MCP server connected
-and granted access to the board.
-
-## Use
-
-Paste the starter prompt from `SKILL.md` (bottom section) into Claude Code, replacing
-`<paste Notion board link>` with your board's link. Claude will ask where to run the
-project before writing any code.
-
-## Put this skill in a GitHub repo
-
-### New repo
-```bash
-mkdir vendure-claude-skills && cd vendure-claude-skills
-mkdir -p .claude/skills
-cp -R /path/to/kanban-agent-implementation .claude/skills/
-git init
-git add .
-git commit -m "Add kanban-agent-implementation Claude skill"
-git branch -M main
-git remote add origin https://github.com/<you>/<repo>.git
-git push -u origin main
-```
-
-### Existing repo
-```bash
-mkdir -p .claude/skills
-cp -R /path/to/kanban-agent-implementation .claude/skills/
-git add .claude/skills/kanban-agent-implementation
-git commit -m "Add kanban-agent-implementation Claude skill"
-git push
-```
-
-Anyone who clones the repo and opens it in Claude Code gets the skill automatically.
+Built, wired, and verified against the Claude Code docs; enforcement is proven by
+execution (the hooks actually deny/allow). Not yet run end-to-end on a live board —
+treat the first run as a shakeout with one small ticket. Full rationale for every
+design decision is in `V2_NOTES.md`.
