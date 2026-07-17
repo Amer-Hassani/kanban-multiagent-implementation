@@ -1,4 +1,4 @@
-# kanban-multiagent-implementation (Claude Code skill) — v2.3
+# kanban-multiagent-implementation (Claude Code skill) — v2.5
 
 Drives implementation from a Notion Kanban board using **five role-scoped agents**,
 each a specialist at one job: a **Planner** that decomposes and writes acceptance
@@ -80,6 +80,6 @@ the elite-craft research, and the curated tool kit that produced this version.
 mkdir -p .claude/skills
 cp -R /path/to/kanban-multiagent-implementation .claude/skills/
 git add .claude/skills/kanban-multiagent-implementation
-git commit -m "Add kanban-multiagent-implementation Claude skill (v2.3)"
+git commit -m "Add kanban-multiagent-implementation Claude skill (v2.5)"
 git push
 ```
