@@ -1,0 +1,367 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kanban Multi-Agent - Agent Board</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #fbfcfd;
+    --ink: #1a2030; --ink-soft: #55607a; --ink-faint: #8b95ab;
+    --line: #e5e8ef; --line-soft: #eef1f6;
+    --accent: #6366f1;
+    --po: #8b5cf6; --orch: #6366f1; --plan: #d97706; --build: #10b981; --review: #e11d48; --test: #06b6d4;
+    --web: #0ea5e9; --android: #16a34a; --ios: #64748b;
+    --ok-bg: #e7f6ee; --ok-fg: #0a7c48;
+    --inst-bg: #fdf0e6; --inst-fg: #b5590d;
+    --warn-bg: #fdeef0; --warn-fg: #c01d3a;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: "Inter var", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1220; --panel: #161c2c; --panel-2: #1a2133;
+      --ink: #eef1f8; --ink-soft: #a9b3c9; --ink-faint: #6b7690;
+      --line: #262f45; --line-soft: #1f2740;
+      --ios: #94a3b8;
+      --ok-bg: #0f2e1f; --ok-fg: #4ade9a; --inst-bg: #33210f; --inst-fg: #f0a95a; --warn-bg: #331520; --warn-fg: #f77089;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #fbfcfd;
+    --ink: #1a2030; --ink-soft: #55607a; --ink-faint: #8b95ab;
+    --line: #e5e8ef; --line-soft: #eef1f6;
+    --ios: #64748b;
+    --ok-bg: #e7f6ee; --ok-fg: #0a7c48; --inst-bg: #fdf0e6; --inst-fg: #b5590d; --warn-bg: #fdeef0; --warn-fg: #c01d3a;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1220; --panel: #161c2c; --panel-2: #1a2133;
+    --ink: #eef1f8; --ink-soft: #a9b3c9; --ink-faint: #6b7690;
+    --line: #262f45; --line-soft: #1f2740;
+    --ios: #94a3b8;
+    --ok-bg: #0f2e1f; --ok-fg: #4ade9a; --inst-bg: #33210f; --inst-fg: #f0a95a; --warn-bg: #331520; --warn-fg: #f77089;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 40px); }
+  .wrap { max-width: 1320px; margin: 0 auto; }
+
+  header { margin-bottom: 22px; }
+  .eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; margin: 0 0 8px; }
+  h1 { font-size: clamp(24px, 4vw, 34px); margin: 0 0 6px; letter-spacing: -.02em; text-wrap: balance; font-weight: 750; }
+  .sub { color: var(--ink-soft); margin: 0; max-width: 68ch; font-size: 14.5px; }
+
+  .statusbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; margin: 16px 0 8px; padding: 11px 14px; border-radius: 10px; background: var(--ok-bg); border: 1px solid color-mix(in srgb, var(--ok-fg) 25%, transparent); font-size: 12.5px; color: var(--ok-fg); font-weight: 550; }
+  .statusbar b { font-weight: 750; }
+  .statusbar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok-fg); transform: translateY(-1px); }
+  .statusbar code { font-family: var(--mono); font-size: 11.5px; }
+  .honest { font-size: 12px; color: var(--ink-faint); margin: 0 0 20px; padding-left: 14px; max-width: 92ch; }
+  .honest b { color: var(--ink-soft); font-weight: 650; }
+
+  /* surface legend */
+  .surfaces { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
+  .surf { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; padding: 6px 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); }
+  .surf code { font-family: var(--mono); font-weight: 700; font-size: 11px; padding: 1px 5px; border-radius: 4px; }
+  .surf.web code { color: var(--web); background: color-mix(in srgb, var(--web) 12%, transparent); }
+  .surf.android code { color: var(--android); background: color-mix(in srgb, var(--android) 12%, transparent); }
+  .surf.backend code { color: var(--ink-soft); background: var(--panel-2); }
+  .surf.ios code { color: var(--ios); background: color-mix(in srgb, var(--ios) 14%, transparent); }
+  .surf small { color: var(--ink-faint); }
+  .hostnote { font-size: 12px; color: var(--ink-faint); margin: 0 0 24px; max-width: 92ch; }
+  .hostnote b { color: var(--ink-soft); font-weight: 650; }
+  .hostnote code { font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); }
+
+  .pipeline { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; margin: 0 0 8px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
+  .stage { flex: 1 1 0; min-width: 116px; padding: 12px 14px; border-right: 1px solid var(--line); }
+  .stage:last-child { border-right: none; }
+  .stage .col { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; }
+  .stage .who { font-size: 13px; font-weight: 650; margin-top: 3px; }
+  .stage .who small { font-weight: 500; color: var(--ink-soft); }
+  .stage.human { background: var(--panel-2); }
+  .stage.human .who { color: var(--accent); }
+  .flownote { font-size: 12px; color: var(--ink-faint); margin: 0 0 26px; }
+  .flownote b { color: var(--po); }
+  .flownote .r { color: var(--orch); font-weight: 600; }
+
+  /* version delta */
+  .delta { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 14px 16px; margin: 0 0 26px; }
+  .delta > .lbl { font-size: 10px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; margin: 0 0 12px; }
+  .delta-list { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .rel { display: flex; gap: 11px; align-items: flex-start; }
+  .rel .ver { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 5px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-soft); white-space: nowrap; }
+  .rel .what { font-size: 12.5px; color: var(--ink-soft); margin: 0; }
+  .rel .what b { color: var(--ink); font-weight: 650; }
+  .rel .what code { font-family: var(--mono); font-size: 11.5px; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 0; overflow: hidden; display: flex; flex-direction: column; border-top: 3px solid var(--hue); }
+  .card.split { border-top-style: dashed; }
+  .card__head { padding: 16px 16px 12px; }
+  .badge-role { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--hue); background: color-mix(in srgb, var(--hue) 12%, transparent); padding: 3px 8px; border-radius: 999px; margin-bottom: 9px; }
+  .card h2 { font-size: 18px; margin: 0 0 4px; letter-spacing: -.01em; }
+  .card .job { font-size: 12.5px; color: var(--ink-soft); margin: 0; }
+  .variant-tags { display: flex; gap: 5px; margin-top: 9px; flex-wrap: wrap; }
+  .vtag { font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+  .vtag.web { color: var(--web); background: color-mix(in srgb, var(--web) 12%, transparent); }
+  .vtag.android { color: var(--android); background: color-mix(in srgb, var(--android) 12%, transparent); }
+  .vtag.ios { color: var(--ios); background: color-mix(in srgb, var(--ios) 14%, transparent); }
+
+  .section { padding: 12px 16px; border-top: 1px solid var(--line-soft); }
+  .section > .lbl { font-size: 10px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; margin: 0 0 9px; display: flex; align-items: center; gap: 6px; }
+  .section > .lbl::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--hue); }
+
+  .tool { display: flex; align-items: baseline; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; }
+  .tool:last-child { margin-bottom: 0; }
+  .tool code { font-family: var(--mono); font-size: 12px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line-soft); padding: 1px 6px; border-radius: 5px; font-weight: 500; }
+  .tool .when { font-size: 11px; color: var(--ink-faint); }
+  .tool .sfx { font-family: var(--mono); font-size: 9.5px; font-weight: 700; padding: 1px 4px; border-radius: 3px; }
+  .tool .sfx.web { color: var(--web); background: color-mix(in srgb, var(--web) 12%, transparent); }
+  .tool .sfx.android { color: var(--android); background: color-mix(in srgb, var(--android) 12%, transparent); }
+  .tool .sfx.ios { color: var(--ios); background: color-mix(in srgb, var(--ios) 14%, transparent); }
+  .chip { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+  .chip.ok { background: var(--ok-bg); color: var(--ok-fg); }
+  .chip.install { background: var(--inst-bg); color: var(--inst-fg); }
+  .chip.verify { background: var(--warn-bg); color: var(--warn-fg); }
+  .chip.mac { background: color-mix(in srgb, var(--ios) 15%, transparent); color: var(--ios); }
+
+  ul.craft { list-style: none; margin: 0; padding: 0; }
+  ul.craft li { font-size: 12.5px; color: var(--ink-soft); padding-left: 15px; position: relative; margin-bottom: 6px; line-height: 1.4; }
+  ul.craft li:last-child { margin-bottom: 0; }
+  ul.craft li::before { content: ""; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 1px; background: var(--hue); opacity: .7; transform: rotate(45deg); }
+  ul.craft li b { color: var(--ink); font-weight: 650; }
+
+  .enforce { font-size: 11.5px; color: var(--ink-soft); font-family: var(--mono); background: var(--panel-2); border: 1px dashed var(--line); border-radius: 7px; padding: 8px 10px; margin: 0; }
+  .enforce b { color: var(--hue); font-weight: 700; }
+  .enforce .proven { color: var(--ok-fg); font-weight: 700; }
+  .enforce .fixed { color: var(--ink-faint); font-weight: 600; }
+
+  footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; gap: 20px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--ink-faint); }
+  .legend { display: flex; gap: 8px; align-items: center; }
+  .status-note { margin-left: auto; font-style: italic; }
+  @media (max-width: 720px) { .status-note { margin-left: 0; } }
+</style>
+<style>
+  .repo-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--accent); text-decoration: none; border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); padding: 4px 10px; border-radius: 7px; font-weight: 600; }
+  .repo-link:hover { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  .repo-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">kanban-multiagent-implementation آ· v2.5 آ· surface-adaptive</p>
+    <h1>The Agent Board</h1>
+    <p class="sub">Ten specialists, one ticket at a time â€” driving <b>web, Android and iOS</b> from a single board. Every ticket carries a surface tag; the orchestrator spawns the matching build/test agents. Each agent gets the best tools for its job (kit), the elite methodology of a world-class professional (craft), and its restrictions enforced by real config â€” verified against the docs and proven by execution.</p>
+  </header>
+
+  <div class="statusbar">
+    <span class="dot"></span>
+    <span><b>Enforcement is real.</b> Tool scoping = denylists آ· per-agent limits = five <code>PreToolUse</code> hooks (smoke-tested: Android Tester denied writing <code>lib/main.dart</code>, allowed a Maestro <code>.yaml</code>) آ· secrets &amp; irreversible ops = session settings.</span>
+  </div>
+  <p class="honest"><b>The honest limit:</b> hooks and permission rules are best-effort, not a hard security boundary. They block the obvious bypasses; for a guaranteed one, turn on Claude Code's OS sandbox. This is built for supervised use with a human gate before anything ships â€” not as a defence against a hostile agent.</p>
+
+  <div class="surfaces">
+    <span class="surf web"><code>web</code><small>â†’ builder-web + tester-web (Playwright) آ· any OS</small></span>
+    <span class="surf android"><code>android</code><small>â†’ builder-android + tester-android (Maestro) آ· any OS</small></span>
+    <span class="surf ios"><code>ios</code><small>â†’ builder-ios + tester-ios (Maestro on the Simulator) آ· macOS</small></span>
+    <span class="surf backend"><code>backend</code><small>â†’ web agents, no UI to drive</small></span>
+  </div>
+  <p class="hostnote"><b>iOS is a full surface now â€” but availability depends on your machine, and setup detects it rather than assuming.</b> One command reads the host OS: on a <b>Mac</b>, all three surfaces build and test locally. On <b>Windows or Linux</b>, web and Android are fully local; iOS <em>code</em> is still written here from the same Expo/React Native codebase, but its build and test need macOS â€” Apple's rule, not the skill's â€” so an iOS-specific ticket routes to a Mac host or a cloud build (Expo EAS). With one shared codebase, most iOS work is already covered by its matching <code>android</code> ticket.</p>
+
+  <div class="pipeline">
+    <div class="stage" style="background:color-mix(in srgb, var(--po) 8%, transparent)"><div class="col">Idea â†’ Backlog</div><div class="who" style="color:var(--po)">Product Owner <small>آ· tags surface</small></div></div>
+    <div class="stage"><div class="col">To Do</div><div class="who">Planner <small>triage آ· decompose</small></div></div>
+    <div class="stage"><div class="col">In progress</div><div class="who">Builder <small>web / android / ios</small></div></div>
+    <div class="stage"><div class="col">Review <span style="opacity:.5">(risky)</span></div><div class="who">Reviewer</div></div>
+    <div class="stage"><div class="col">QA <span style="opacity:.5">(risky)</span></div><div class="who">Tester <small>web / android / ios</small></div></div>
+    <div class="stage human"><div class="col">Ready for review</div><div class="who">You <small>آ· â†’ Done</small></div></div>
+  </div>
+  <p class="flownote">The <b>Product Owner</b> runs first (idea â†’ backlog, tags each story's surface). The <span class="r">Orchestrator</span> â€” main session, sole board-writer â€” reads the surface and spawns the matching agents; it never codes. Only you move a ticket to <b style="color:var(--ink-soft)">Done</b>.</p>
+
+  <section class="delta">
+    <p class="lbl">What changed since this board was drawn آ· v2.3 â†’ v2.5</p>
+    <div class="delta-list">
+      <div class="rel">
+        <span class="ver">v2.4</span>
+        <p class="what"><b>iOS became a real surface.</b> It was marked "deferred" here before. It now has its own Builder and Tester, with Maestro driving the iOS Simulator â€” and availability is <b>detected from the host OS at setup</b> instead of assumed. That took the roster from eight agents to ten.</p>
+      </div>
+      <div class="rel">
+        <span class="ver">v2.5</span>
+        <p class="what"><b>Full audit pass â€” 30 findings fixed.</b> The three load-bearing ones: setup's file-copying moved off the write-free Orchestrator (it couldn't do it); the path guard now allows Maestro <code>.maestro/</code> flows, so mobile tickets stop stalling; and the Reviewer's "read-only" shell rule now actually blocks writes by redirection â€” it was bypassable.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid">
+
+    <!-- PRODUCT OWNER -->
+    <div class="card" style="--hue:var(--po)">
+      <div class="card__head">
+        <span class="badge-role">Product آ· first agent</span>
+        <h2>Product Owner</h2>
+        <p class="job">Idea â†’ prioritized backlog of user stories. Tags each story's surface. Advises on product.</p>
+      </div>
+      <div class="section">
+        <p class="lbl">Kit</p>
+        <div class="tool"><code>PM skills</code><span class="when">stories آ· backlog</span><span class="chip install">install</span></div>
+        <div class="tool"><code>Notion MCP</code><span class="when">create backlog</span><span class="chip verify">verify</span></div>
+      </div>
+      <div class="section">
+        <p class="lbl">Craft</p>
+        <ul class="craft">
+          <li><b>Outcomes, not output</b> â€” a backlog is a bet on results</li>
+          <li>Connextra with a <b>specific persona</b> â€” ban "As a user"</li>
+          <li>Split vertically by a <b>named method</b> (SPIDR)</li>
+          <li>Mobile story-classes: <b>permissions آ· offline آ· push آ· store release</b></li>
+        </ul>
+      </div>
+      <div class="section"><p class="lbl">Enforced by</p><p class="enforce">denylist â€” no code edit/Bash; keeps Notion + Skill</p></div>
+    </div>
+
+    <!-- ORCHESTRATOR -->
+    <div class="card" style="--hue:var(--orch)">
+      <div class="card__head">
+        <span class="badge-role">Coordinator آ· main session</span>
+        <h2>Orchestrator</h2>
+        <p class="job">Owns board, log, WIP. Routes each ticket by surface; spawns the others; never codes.</p>
+      </div>
+      <div class="section">
+        <p class="lbl">Kit</p>
+        <div class="tool"><code>Notion MCP</code><span class="chip verify">verify</span></div>
+        <div class="tool"><code>Agent</code><span class="when">spawns آ· routes by surface</span><span class="chip ok">built-in</span></div>
+        <div class="tool"><code>--max-budget-usd</code><span class="when">cost cap</span><span class="chip ok">built-in</span></div>
+      </div>
+      <div class="section">
+        <p class="lbl">Craft</p>
+        <ul class="craft">
+          <li><b>Verify the artifact</b>, never a self-reported "done"</li>
+          <li><b>Route by surface</b> â€” web / android / ios / backend</li>
+          <li>Triage by <b>reversibility</b>; act on <b>early drift</b></li>
+          <li>Off a Mac, an iOS ticket is <b>flagged for cloud build</b> â€” never called "verified locally"</li>
+          <li>Keeps its run-state <b>in the board itself</b> â€” it has no filesystem</li>
+        </ul>
+      </div>
+      <div class="section"><p class="lbl">Enforced by</p><p class="enforce">runs as <b>main session</b> (never spawned) آ· denylist blocks Edit/Write/Bash آ· <span class="fixed">setup's file-ops moved to a separate session (v2.5)</span></p></div>
+    </div>
+
+    <!-- PLANNER -->
+    <div class="card" style="--hue:var(--plan)">
+      <div class="card__head">
+        <span class="badge-role">Architect آ· all surfaces</span>
+        <h2>Planner</h2>
+        <p class="job">Triage, order, decompose (web + mobile checklists), author the acceptance tests.</p>
+      </div>
+      <div class="section">
+        <p class="lbl">Kit</p>
+        <div class="tool"><code>GitHub Spec-Kit</code><span class="when">decompose آ· deps</span><span class="chip install">install</span></div>
+        <div class="tool"><code>plan-in-prose</code><span class="when">fallback</span><span class="chip ok">built-in</span></div>
+      </div>
+      <div class="section">
+        <p class="lbl">Craft</p>
+        <ul class="craft">
+          <li><b>Slice vertically</b> â€” each task ships end-to-end value</li>
+          <li>Sequence by risk; run a <b>premortem</b> first</li>
+          <li>Criteria as <b>Given-When-Then</b>, never adjectives</li>
+          <li>Mobile: split permission states, offline, per surface</li>
+        </ul>
+      </div>
+      <div class="section"><p class="lbl">Enforced by</p><p class="enforce">hook: <b>writes test files only</b> <span class="proven">âœ“ tested</span></p></div>
+    </div>
+
+    <!-- BUILDER (3-way split) -->
+    <div class="card split" style="--hue:var(--build)">
+      <div class="card__head">
+        <span class="badge-role">Implementer آ· 3 surface variants</span>
+        <h2>Builder</h2>
+        <p class="job">Test-first. The smallest change that fully solves it â€” and only that.</p>
+        <div class="variant-tags"><span class="vtag web">builder-web</span><span class="vtag android">builder-android</span><span class="vtag ios">builder-ios</span></div>
+      </div>
+      <div class="section">
+        <p class="lbl">Kit</p>
+        <div class="tool"><code>Superpowers</code><span class="when">risky آ· TDD</span><span class="chip install">install</span></div>
+        <div class="tool"><code>npm آ· vite</code><span class="sfx web">web</span></div>
+        <div class="tool"><code>flutter آ· expo آ· gradlew</code><span class="sfx android">android</span></div>
+        <div class="tool"><code>expo آ· xcodebuild آ· simctl</code><span class="sfx ios">ios</span><span class="chip mac">macOS</span></div>
+        <div class="tool"><code>Chrome DevTools آ· Postgres MCP</code><span class="when">debug</span><span class="chip install">install</span></div>
+      </div>
+      <div class="section">
+        <p class="lbl">Craft</p>
+        <ul class="craft">
+          <li><b>Match the codebase</b> before writing anything</li>
+          <li>Smallest change; solve <b>only this problem</b></li>
+          <li>Duplication over the <b>wrong abstraction</b> â€” wait for 3</li>
+          <li>Mobile: <b>stable element IDs</b> for testability آ· four permission states آ· offline</li>
+          <li>iOS: an <b>Info.plist usage string</b> per capability (missing = instant crash) آ· <b>HIG, not Material</b></li>
+        </ul>
+      </div>
+      <div class="section"><p class="lbl">Enforced by</p><p class="enforce">hook: <b>can't edit acceptance tests</b> <span class="proven">âœ“ tested</span> آ· branch only, never main</p></div>
+    </div>
+
+    <!-- REVIEWER -->
+    <div class="card" style="--hue:var(--review)">
+      <div class="card__head">
+        <span class="badge-role">Critic آ· risky آ· all surfaces</span>
+        <h2>Reviewer</h2>
+        <p class="job">Independent check â€” sees the diff, never the Builder's reasoning.</p>
+      </div>
+      <div class="section">
+        <p class="lbl">Kit</p>
+        <div class="tool"><code>/code-review</code><span class="chip ok">built-in</span></div>
+        <div class="tool"><code>/security-review</code><span class="chip ok">built-in</span></div>
+        <div class="tool"><code>Semgrep MCP</code><span class="when">SAST</span><span class="chip install">install</span></div>
+      </div>
+      <div class="section">
+        <p class="lbl">Craft</p>
+        <ul class="craft">
+          <li>Build <b>concrete failure scenarios</b>, not "looks right?"</li>
+          <li>Audit for what is <b>absent</b> â€” missing tests, errors</li>
+          <li>Back objections with a fact; <b>refuse to bikeshed</b></li>
+          <li>Mobile: permissions آ· offline آ· insecure storage آ· testability</li>
+        </ul>
+      </div>
+      <div class="section"><p class="lbl">Enforced by</p><p class="enforce">denylist no write + hook: <b>read-only Bash</b> <span class="proven">âœ“ tested</span> آ· <span class="fixed">shell-redirect writes now blocked (v2.5)</span></p></div>
+    </div>
+
+    <!-- TESTER (3-way split) -->
+    <div class="card split" style="--hue:var(--test)">
+      <div class="card__head">
+        <span class="badge-role">QA آ· risky آ· 3 surface variants</span>
+        <h2>Tester</h2>
+        <p class="job">Drives the real app. Proves it ran â€” never asserts from memory.</p>
+        <div class="variant-tags"><span class="vtag web">tester-web</span><span class="vtag android">tester-android</span><span class="vtag ios">tester-ios</span></div>
+      </div>
+      <div class="section">
+        <p class="lbl">Kit</p>
+        <div class="tool"><code>Playwright MCP</code><span class="sfx web">web</span><span class="chip install">install</span></div>
+        <div class="tool"><code>Maestro MCP</code><span class="when">emulator</span><span class="sfx android">android</span><span class="chip install">install</span></div>
+        <div class="tool"><code>Maestro MCP آ· simctl</code><span class="when">Simulator</span><span class="sfx ios">ios</span><span class="chip mac">macOS</span></div>
+        <div class="tool"><code>/verify</code><span class="when">prove-it-ran</span><span class="chip ok">built-in</span></div>
+      </div>
+      <div class="section">
+        <p class="lbl">Craft</p>
+        <ul class="craft">
+          <li><b>Test to disprove</b>, not to confirm</li>
+          <li>Attack every <b>boundary</b>: 0, 1, 2 â€¦ maxâˆ’1, max, max+1</li>
+          <li>Fire the <b>nasty-data arsenal</b>: empty, huge, unicode, injection</li>
+          <li>Mobile: <b>permissions آ· offline mid-action آ· lifecycle آ· back gesture</b></li>
+          <li>One Maestro flow drives <b>both</b> Android and iOS</li>
+        </ul>
+      </div>
+      <div class="section"><p class="lbl">Enforced by</p><p class="enforce">hook: <b>test files only</b> <span class="proven">âœ“ tested</span> آ· <span class="fixed">Maestro <code>.maestro/</code> flows now allowed (v2.5)</span></p></div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div class="legend"><span class="chip ok">built-in</span> ready now</div>
+    <div class="legend"><span class="chip install">install</span> one-time setup</div>
+    <div class="legend"><span class="chip verify">verify</span> confirm connected</div>
+    <div class="legend"><span class="chip mac">macOS</span> Mac host only</div>
+    <span class="status-note">v2.5 آ· 10 agents آ· web + Android on any OS, iOS local on a Mac آ· enforcement doc-verified &amp; execution-tested آ· not yet run on a live board</span>
+    <a class="repo-link" href="https://github.com/Amer-Hassani/kanban-multiagent-implementation">Source repository &#8599;</a>
+  </footer>
+</div>
+
+</body>
+</html>
+

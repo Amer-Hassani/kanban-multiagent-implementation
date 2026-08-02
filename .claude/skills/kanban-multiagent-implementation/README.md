@@ -1,38 +1,72 @@
 # kanban-multiagent-implementation (Claude Code skill) — v2.5
 
-Drives implementation from a Notion Kanban board using **five role-scoped agents**,
-each a specialist at one job: a **Planner** that decomposes and writes acceptance
-tests, a **Builder** that implements test-first, and independent **Reviewer** and
-**Tester** agents that check the work without inheriting the Builder's reasoning —
-all coordinated by an **Orchestrator** that owns the board and never writes code.
-Agents advance tickets to **Ready for review**; only you move a ticket to **Done**.
+Drives implementation from a Notion Kanban board using **ten role-scoped agents**,
+each a specialist at one job: a **Product Owner** that turns an idea into a tagged
+backlog, a **Planner** that decomposes and writes acceptance tests, **Builders** that
+implement test-first, and independent **Reviewer** and **Tester** agents that check
+the work without inheriting the Builder's reasoning — all coordinated by an
+**Orchestrator** that owns the board and never writes code. Agents advance tickets to
+**Ready for review**; only you move a ticket to **Done**.
 
-Sibling to [`kanban-agent-implementation`](../kanban-agent-implementation/) (one
-instance does everything). Use this when you want genuinely independent
-build/review/test instead of the same context grading its own work.
+**Surface-adaptive:** one board drives **web, Android, and iOS**. Every ticket carries
+a surface tag and the orchestrator spawns the matching build/test pair.
+
+> 📊 **[Open the visual Agent Board](../../../docs/agent-board.html)** — every agent's
+> kit, craft, and enforced limits on one page.
+
+## The pipeline
+
+```mermaid
+flowchart LR
+    PO["<b>Backlog</b><br/>Product Owner"] --> TD["<b>To Do</b><br/>Planner"]
+    TD --> IP["<b>In progress</b><br/>Builder"]
+    IP --> RV["<b>Review</b><br/>Reviewer"]
+    RV --> QA["<b>QA</b><br/>Tester"]
+    QA --> RFR["<b>Ready for review</b><br/>YOU"]
+    RFR --> DN["<b>Done</b><br/><i>human only</i>"]
+
+    style RFR fill:#eef2ff,stroke:#6366f1,stroke-width:2px,color:#1a2030
+    style DN fill:#e7f6ee,stroke:#0a7c48,stroke-width:2px,color:#1a2030
+```
+
+**Simple path** (most tickets): Planner writes one failing test → Builder → Tester
+confirms. **Risky path** (more than one file, or shared/critical code): full acceptance
+tests → Builder → Reviewer *and* Tester, looping up to 4 combined rounds.
 
 ## What's in this skill
 
 ```
 kanban-multiagent-implementation/
-├── SKILL.md                        the workflow + setup
-├── README.md                       this file
-├── V2_NOTES.md                     the full audit/design record behind v2
-└── templates/                      copied into your project at setup
-    ├── agents/
-    │   ├── kanban-orchestrator.md  each file = one agent's tools + craft
+├── SKILL.md                            the workflow + setup
+├── README.md                           this file
+├── V2_NOTES.md                         the full audit/design record behind v2
+└── templates/                          copied into your project at setup
+    ├── agents/                         each file = one agent's tools + craft
+    │   ├── kanban-product-owner.md
+    │   ├── kanban-orchestrator.md
     │   ├── kanban-planner.md
-    │   ├── kanban-builder.md
+    │   ├── kanban-builder-web.md
+    │   ├── kanban-builder-android.md
+    │   ├── kanban-builder-ios.md
     │   ├── kanban-reviewer.md
-    │   └── kanban-tester.md
-    └── settings.kanban.json        path/command permissions (enforcement)
+    │   ├── kanban-tester-web.md
+    │   ├── kanban-tester-android.md
+    │   └── kanban-tester-ios.md
+    ├── hooks/                          PreToolUse limits, per agent
+    │   ├── _path-guard.js              shared path matcher
+    │   ├── planner-test-files-only.js
+    │   ├── tester-test-files-only.js
+    │   ├── deny-acceptance-test-edits.js
+    │   └── reviewer-readonly-bash.js
+    └── settings.kanban.json            session-wide permissions (enforcement)
 ```
 
 Each agent file carries three things: its **kit** (which tools it may use), its
 **craft** (the elite methodology written into its instructions — how a world-class
-professional in that role actually works), and its **enforcement** (tool scoping).
-The `settings.kanban.json` adds the path- and command-level rules that agent
-frontmatter can't express (secret protection, Bash allowlists, human-only ops).
+professional in that role actually works), and its **enforcement** (tool scoping plus
+the hook that limits its paths and commands). The `settings.kanban.json` adds the
+session-wide rules that agent frontmatter can't express (secret protection, denied
+irreversible operations, human-only ops).
 
 ## Install
 
@@ -44,20 +78,24 @@ Then restart Claude Code (or run `/skills`) to confirm it's listed.
 ## Prerequisites
 
 The skill's **setup step checks these for you and walks you through anything
-missing** — you don't need to install up front.
+missing** — you don't need to install up front. Mobile tools are only checked if the
+project actually has that surface, and iOS only on a Mac.
 
 - **Notion MCP** connected to your board — required (the one true blocker).
-- **Playwright MCP** — `claude mcp add playwright npx @playwright/mcp@latest` (Tester).
-- **Superpowers** — `/plugin install superpowers@claude-plugins-official` (Builder, optional).
+- **Playwright MCP** — `claude mcp add playwright npx @playwright/mcp@latest` (web Tester).
+- **Maestro** — drives the Android emulator and iOS Simulator (mobile Testers); `maestro mcp` exposes it.
+- **Xcode** — required on macOS for the iOS surface. Not applicable elsewhere.
+- **Superpowers** — `/plugin install superpowers@claude-plugins-official` (Builders, optional).
 - **Chrome DevTools MCP** — `/plugin install chrome-devtools-mcp@claude-plugins-official` (optional).
 - Already built-in, nothing to do: `/code-review`, `/security-review`, `/verify`, Plan Mode.
 
 ## Use
 
 Paste the starter prompt from `SKILL.md` (bottom), replacing `<paste Notion board
-link>`. The orchestrator runs a one-time setup (installs the agent files, merges the
-permissions, proposes your risky-code list in plain language), then works tickets one
-at a time.
+link>`. A normal Claude Code session runs the one-time setup (detects your OS,
+installs the agent files and hooks, merges the permissions, proposes your risky-code
+list in plain language) — then you launch the orchestrator, which works tickets one at
+a time.
 
 **What to expect:** tickets stop at **Ready for review**, not Done. You'll get
 plain-language evidence (what changed, how to try it, screenshots) and move the ticket
@@ -71,15 +109,8 @@ Orchestrator only passes **this ticket's context**, and enforces the Reviewer's 
 Tester's independence by *omitting* the Builder's reasoning from their prompt.
 Isolation is an act of omission, not a tool.
 
+It also never re-runs tests itself (it has no Bash). A self-reported "tests pass" is
+never accepted as evidence — a freshly spawned Tester has to confirm independently.
+
 See `V2_NOTES.md` for the full design record — the audits, the per-agent findings,
 the elite-craft research, and the curated tool kit that produced this version.
-
-## Put this skill in a GitHub repo
-
-```bash
-mkdir -p .claude/skills
-cp -R /path/to/kanban-multiagent-implementation .claude/skills/
-git add .claude/skills/kanban-multiagent-implementation
-git commit -m "Add kanban-multiagent-implementation Claude skill (v2.5)"
-git push
-```
