@@ -11,19 +11,19 @@ the work without inheriting the Builder's reasoning — all coordinated by an
 **Surface-adaptive:** one board drives **web, Android, and iOS**. Every ticket carries
 a surface tag and the orchestrator spawns the matching build/test pair.
 
-> 📊 **[Open the visual Agent Board](../../../docs/agent-board.html)** — every agent's
-> kit, craft, and enforced limits on one page.
+> 📊 **[Open the visual Agent Board](https://amer-hassani.github.io/kanban-multiagent-implementation/)**
+> — every agent's kit, craft, and enforced limits on one page.
 
 ## The pipeline
 
 ```mermaid
 flowchart LR
-    PO["<b>Backlog</b><br/>Product Owner"] --> TD["<b>To Do</b><br/>Planner"]
-    TD --> IP["<b>In progress</b><br/>Builder"]
-    IP --> RV["<b>Review</b><br/>Reviewer"]
-    RV --> QA["<b>QA</b><br/>Tester"]
-    QA --> RFR["<b>Ready for review</b><br/>YOU"]
-    RFR --> DN["<b>Done</b><br/><i>human only</i>"]
+    PO["Backlog<br/>Product Owner"] --> TD["To Do<br/>Planner"]
+    TD --> IP["In progress<br/>Builder"]
+    IP --> RV["Review<br/>Reviewer"]
+    RV --> QA["QA<br/>Tester"]
+    QA --> RFR["Ready for review<br/>YOU"]
+    RFR --> DN["Done<br/>human only"]
 
     style RFR fill:#eef2ff,stroke:#6366f1,stroke-width:2px,color:#1a2030
     style DN fill:#e7f6ee,stroke:#0a7c48,stroke-width:2px,color:#1a2030

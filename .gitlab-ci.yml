@@ -1,0 +1,20 @@
+# Publishes docs/ as a GitLab Pages site, so the visual Agent Board is a real
+# web page instead of a file you have to download.
+#
+#   https://amerhassani-group.gitlab.io/kanban-multiagent-implementation/
+#
+# Note: gitlab.com requires an account verified for shared CI runners before this
+# job will run. If it never starts, that is why — the GitHub Pages copy at
+# https://amer-hassani.github.io/kanban-multiagent-implementation/ needs no CI.
+
+pages:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - mkdir -p public
+    - cp -r docs/. public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
